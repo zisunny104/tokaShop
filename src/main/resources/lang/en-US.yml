@@ -20,8 +20,8 @@ shop:
   bad_price: "§e[Shop] §cA price is -1 (closed) or a whole number of 1 or more."
   usage: "§e[Shop] §fUsage: /shop buy|sell <key> [pieces], /shop price <key>"
   unit: "Silver"
-  slip_buy: "§bReceipt §fBought ${0} x ${1}  §7${2}${3}  balance ${4}"
-  slip_sell: "§6Receipt §fSold ${0} x ${1}  §7${2}  balance ${3}"
+  slip_buy: "§bDetails §fBought ${0} x ${1} §8| §7${2}${3} §8| §7balance ${4}"
+  slip_sell: "§6Details §fSold ${0} x ${1} §8| §7${2} §8| §7balance ${3}"
 window:
   title: "Shop"
   pick_category: "Pick a category"
