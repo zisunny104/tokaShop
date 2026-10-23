@@ -90,7 +90,7 @@ final class Trade {
 
     private static void say(Player player, String line, String top) {
         player.sendMessage(line);
-        player.sendActionBar(top != null ? top : cn.nukkit.utils.TextFormat.clean(line).replaceFirst("^\[[^\]]*\]\s*", ""));
+        player.sendActionBar(top != null ? top : cn.nukkit.utils.TextFormat.clean(line).replaceFirst("^\\[[^\\]]*\\]\\s*", ""));
     }
 
     private String money(long value) { return String.format("%,d", value) + " " + messages.text("shop.unit"); }
