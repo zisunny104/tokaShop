@@ -51,4 +51,56 @@ public class ShopTest {
             assertFalse(closed.get(p.key()).canBuy());
         }
     }
+
+    @Test public void pricesAreMinusOneOrPositive() {
+        assertEquals(Long.valueOf(-1), Pricing.parsePrice(" -1 "));
+        assertEquals(Long.valueOf(130), Pricing.parsePrice("130"));
+        assertNull(Pricing.parsePrice("0"));
+        assertNull(Pricing.parsePrice("-5"));
+        assertNull(Pricing.parsePrice("abc"));
+        assertNull(Pricing.parsePrice(""));
+        assertNull(Pricing.parsePrice(null));
+    }
+
+    @Test public void pagingKeepsPagesInRange() {
+        assertEquals(1, Paging.pages(0, 5));
+        assertEquals(3, Paging.pages(12, 5));
+        assertEquals(2, Paging.clamp(9, 3));
+        assertEquals(0, Paging.clamp(-4, 3));
+        assertEquals(10, Paging.from(2, 5));
+        assertEquals(12, Paging.to(2, 5, 12));
+    }
+
+    @Test public void disabledProductKeepsItsPricesWhenViewedAsEnabled() throws Exception {
+        try (InputStream in = getClass().getResourceAsStream("/catalogue.json")) {
+            Product p = Catalogue.read(in).get(0);
+            var off = new Catalogue.Override(null, null, null, true);
+            assertFalse(Catalogue.apply(p, off, "zh-TW", false).canBuy());
+            assertEquals(p.buy(), Catalogue.apply(p, off, "zh-TW", true).buy());
+        }
+    }
+
+    @Test public void searchFindsByCodeInAnyCase() throws Exception {
+        try (InputStream in = getClass().getResourceAsStream("/catalogue.json")) {
+            var cat = new Catalogue(Catalogue.read(in));
+            assertTrue(cat.search("a1001", 10).stream().anyMatch(p -> p.key().equals("A1001")));
+        }
+    }
+
+    @Test public void langFilesHaveTheSameKeys() throws Exception {
+        assertEquals(keys("/lang/zh-TW.yml"), keys("/lang/en-US.yml"));
+    }
+
+    private java.util.Set<String> keys(String path) throws Exception {
+        try (var in = getClass().getResourceAsStream(path)) {
+            var out = new java.util.TreeSet<String>();
+            flatten("", new org.yaml.snakeyaml.Yaml().load(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8)), out);
+            return out;
+        }
+    }
+
+    private void flatten(String prefix, Object node, java.util.Set<String> out) {
+        if (node instanceof java.util.Map<?, ?> m) m.forEach((k, v) -> flatten(prefix.isEmpty() ? String.valueOf(k) : prefix + "." + k, v, out));
+        else out.add(prefix);
+    }
 }

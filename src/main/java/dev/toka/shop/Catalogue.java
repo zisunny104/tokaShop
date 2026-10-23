@@ -78,16 +78,24 @@ public final class Catalogue {
     public static Catalogue with(List<Product> shipped, Map<String, Override> changes, String language) {
         List<Product> list = new ArrayList<>();
         for (Product p : shipped) {
-            Override o = changes.get(p.key());
-            if (o != null) {
-                if (o.disabled()) p = p.withPrices(-1, -1);
-                else p = p.withPrices(valid(o.buy(), p.buy()), valid(o.sell(), p.sell()));
-                if (o.name() != null && !o.name().isBlank()) p = p.withName(language, o.name());
-            }
-            list.add(p);
+            list.add(apply(p, changes.get(p.key()), language, false));
         }
         return new Catalogue(list);
     }
+
+    /** One product with a change laid over it; {@code ignoreDisabled} gives the prices it would have when enabled */
+    public static Product apply(Product p, Override o, String language, boolean ignoreDisabled) {
+        if (o == null) return p;
+        if (o.disabled() && !ignoreDisabled) p = p.withPrices(-1, -1);
+        else p = p.withPrices(valid(o.buy(), p.buy()), valid(o.sell(), p.sell()));
+        if (o.name() != null && !o.name().isBlank()) p = p.withName(language, o.name());
+        return p;
+    }
+
+    /** Hand-picked button pictures of the top categories; config window.icons.<category> replaces one, an empty text removes it */
+    public static final Map<String, String> ICONS = Map.of(
+            "建築", "textures/blocks/brick", "自然", "textures/blocks/sapling_oak", "裝飾", "textures/items/painting",
+            "材料", "textures/items/iron_ingot", "裝備", "textures/items/iron_chestplate", "食物", "textures/items/bread");
 
     private static long valid(Long wanted, long kept) {
         return wanted != null && (wanted == -1 || wanted >= 1) ? wanted : kept;
@@ -104,7 +112,7 @@ public final class Catalogue {
         String w = word.toLowerCase(java.util.Locale.ROOT);
         List<Product> out = new ArrayList<>();
         for (Product p : products.values()) {
-            if (p.key().contains(w) || p.id().contains(w) || p.names().values().stream().anyMatch(n -> n.toLowerCase(java.util.Locale.ROOT).contains(w))) {
+            if (p.key().toLowerCase(java.util.Locale.ROOT).contains(w) || p.id().contains(w) || p.names().values().stream().anyMatch(n -> n.toLowerCase(java.util.Locale.ROOT).contains(w))) {
                 out.add(p);
                 if (out.size() >= limit) break;
             }

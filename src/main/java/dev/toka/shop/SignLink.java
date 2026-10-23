@@ -45,7 +45,7 @@ final class SignLink {
             }
             return true;
         } catch (ReflectiveOperationException | LinkageError | IllegalStateException error) {
-            plugin.getLogger().warning("告示牌介接未就緒：" + error.getClass().getSimpleName());
+            plugin.getLogger().warning(plugin.messages().text("log.sign_not_ready", error.getClass().getSimpleName()));
             unregister();
             return false;
         }

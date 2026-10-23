@@ -18,6 +18,18 @@ public final class Pricing {
         return percent <= 0 ? 0 : ceilDiv(total * percent, 100);
     }
 
+    /** A price is -1 (that side is closed) or a whole number of 1 or more */
+    public static boolean validPrice(long value) { return value == -1 || value >= 1; }
+
+    /** The price in a text, or null when it is not a valid price */
+    public static Long parsePrice(String text) {
+        if (text == null) return null;
+        try {
+            long value = Long.parseLong(text.trim());
+            return validPrice(value) ? value : null;
+        } catch (NumberFormatException bad) { return null; }
+    }
+
     private static long ceilDiv(long a, long b) {
         return (a + b - 1) / b;
     }

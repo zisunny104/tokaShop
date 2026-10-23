@@ -3,6 +3,9 @@ package dev.toka.shop;
 import cn.nukkit.Player;
 import cn.nukkit.command.Command;
 import cn.nukkit.command.CommandSender;
+import cn.nukkit.command.data.CommandEnum;
+import cn.nukkit.command.data.CommandParamType;
+import cn.nukkit.command.data.CommandParameter;
 import cn.nukkit.plugin.PluginBase;
 import cn.nukkit.utils.Config;
 import dev.toka.i18n.Messages;
@@ -23,22 +26,26 @@ public final class Main extends PluginBase {
     private String language;
     private int windowTax, signTax, maxPacks, perPage;
     private ShopWindow window;
+    private AdminWindow admin;
+    private Map<String, Catalogue.Override> overrides = Map.of();
     private SignLink signs;
     private UUID taxAccount;
 
     @Override public void onEnable() {
         saveDefaultConfig();
+        readSettings();
         try (var in = getResource("catalogue.json")) {
             shipped = Catalogue.read(in);
         } catch (IOException | RuntimeException error) {
-            getLogger().error("商品目錄讀取失敗，商店停用：" + error);
+            getLogger().error(messages.text("log.catalogue_failed", String.valueOf(error)));
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        load();
-        trade = new Trade(this, money, messages);
+        trade = new Trade(this);
         validateItems();
         window = new ShopWindow(this);
+        admin = new AdminWindow(this, window);
+        window.admin(admin);
         getServer().getPluginManager().registerEvents(window, this);
         getServer().getPluginManager().registerEvents(new cn.nukkit.event.Listener() {
             @cn.nukkit.event.EventHandler public void on(cn.nukkit.event.plugin.PluginEnableEvent e) {
@@ -46,10 +53,32 @@ public final class Main extends PluginBase {
             }
         }, this);
         linkSigns();
+        suggestCommands();
     }
 
     @Override public void onDisable() {
         if (signs != null) signs.unregister();
+        signs = null;
+    }
+
+    /** Tab completion: Bedrock command overloads. Enum names differ per overload because one name must keep one set of words. */
+    private void suggestCommands() {
+        var command = getCommand("shop");
+        if (command == null) return;
+        Command registered = (Command) command;
+        registered.getCommandParameters().clear();
+        CommandParameter code = CommandParameter.newType("code", CommandParamType.STRING);
+        registered.addCommandParameters("trade", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopTrade", "buy", "sell")), code,
+                CommandParameter.newType("pieces", true, CommandParamType.INT)});
+        registered.addCommandParameters("price", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopPrice", "price")), code});
+        registered.addCommandParameters("help", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopHelp", "help")),
+                CommandParameter.newType("page", true, CommandParamType.INT)});
+        registered.addCommandParameters("plain", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopPlain", "reload", "admin"))});
+        registered.addCommandParameters("toggle", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopToggle", "enable", "disable")), code});
+        registered.addCommandParameters("set", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopSet", "set")), code,
+                CommandParameter.newType("buy", CommandParamType.INT), CommandParameter.newType("sell", CommandParamType.INT)});
+        // the client keeps the command list it got at join, so it is sent again after a (re)load
+        getServer().getScheduler().scheduleTask(this, () -> getServer().getOnlinePlayers().values().forEach(Player::sendCommandData));
     }
 
     private void linkSigns() {
@@ -58,16 +87,16 @@ public final class Main extends PluginBase {
             try (var in = getResource("barcodes.json")) {
                 new com.google.gson.Gson().fromJson(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8), com.google.gson.JsonObject.class)
                         .entrySet().forEach(e -> barcodes.put(e.getKey(), e.getValue().getAsString()));
-            } catch (IOException | RuntimeException error) { getLogger().warning("舊條碼對照讀取失敗：" + error); }
+            } catch (IOException | RuntimeException error) { getLogger().warning(messages.text("log.barcodes_failed", String.valueOf(error))); }
             signs = new SignLink(this, barcodes);
         }
-        if (signs.register()) getLogger().info("商店告示牌（購買、回收、物品管理）已接上 tokaSigns");
+        if (signs.register()) getLogger().info(messages.text("log.signs_linked"));
     }
 
     void openWindow(Player player) { window.open(player); }
 
-    /** Reads the config and the server's own changes again */
-    private int load() {
+    /** Reads the config again: language, messages, currency, taxes, window sizes */
+    private void readSettings() {
         reloadConfig();
         var config = getConfig();
         language = config.getString("language", "zh-TW");
@@ -79,11 +108,15 @@ public final class Main extends PluginBase {
         perPage = Math.max(5, config.getInt("window.per-page", 30));
         String account = config.getString("tax.account", "");
         try { taxAccount = account.isBlank() ? null : UUID.fromString(account.trim()); }
-        catch (IllegalArgumentException bad) { taxAccount = null; getLogger().warning("tax.account 不是有效的 UUID，稅金不存入帳戶"); }
-        Map<String, Catalogue.Override> changes = readOverrides();
-        catalogue = Catalogue.with(shipped, changes, language);
-        if (trade != null) trade = new Trade(this, money, messages);
-        return changes.size();
+        catch (IllegalArgumentException bad) { taxAccount = null; getLogger().warning(messages.text("log.tax_account_bad")); }
+    }
+
+    /** Settings and the server's own changes again. Trade, window and signs ask the plugin for messages, money and catalogue each time, so they follow. */
+    private int load() {
+        readSettings();
+        overrides = readOverrides();
+        catalogue = Catalogue.with(shipped, overrides, language);
+        return overrides.size();
     }
 
     @SuppressWarnings("unchecked")
@@ -107,12 +140,6 @@ public final class Main extends PluginBase {
         return out;
     }
 
-    private static Long parse(String text) {
-        try { return Long.parseLong(text.trim()); } catch (NumberFormatException bad) { return null; }
-    }
-
-    private static boolean validPrice(long value) { return value == -1 || value >= 1; }
-
     private static Long number(Object o) { return o instanceof Number n ? n.longValue() : null; }
 
     /** A product whose id this server does not know cannot be traded: it is closed, and counted once in the log. */
@@ -123,12 +150,27 @@ public final class Main extends PluginBase {
             if (Trade.item(p, 1) == null) { unknown++; kept.add(p.withPrices(-1, -1)); } else kept.add(p);
         }
         shipped = kept;
-        catalogue = Catalogue.with(shipped, readOverrides(), language);
+        overrides = readOverrides();
+        catalogue = Catalogue.with(shipped, overrides, language);
         long open = catalogue.all().stream().filter(p -> p.canBuy() || p.canSell()).count();
-        getLogger().info("商店：" + shipped.size() + " 個品項，" + open + " 個開放" + (unknown > 0 ? "，" + unknown + " 個此伺服器不認得而關閉" : ""));
+        getLogger().info(messages.text("log.shop_count", shipped.size(), open));
+        if (unknown > 0) getLogger().warning(messages.text("log.shop_unknown", unknown));
     }
 
     String language() { return language; }
+
+    Money money() { return money; }
+
+    /** A product as it is when enabled, with its own prices even when it is switched off now */
+    Product enabledView(Product current) {
+        for (Product p : shipped) if (p.key().equals(current.key())) return Catalogue.apply(p, overrides.get(p.key()), language, true);
+        return current;
+    }
+
+    boolean disabledByOverride(Product p) {
+        var o = overrides.get(p.key());
+        return o != null && o.disabled();
+    }
 
     Messages messages() { return messages; }
 
@@ -154,7 +196,7 @@ public final class Main extends PluginBase {
     void payTax(long tax, String operation) {
         UUID account = taxAccount != null ? taxAccount : treasury();
         if (account != null) money.deposit(account, tax, "tax", operation + ":tax");
-        else getLogger().warning("找不到主國庫，這筆消費稅 " + tax + " 沒有存入任何帳戶");
+        else getLogger().warning(messages.text("log.no_treasury", tax));
     }
 
     /** The main treasury of tokaRegions, when that plugin is there and one region holds it */
@@ -201,32 +243,69 @@ public final class Main extends PluginBase {
                 if (pieces < 1 || pieces > maxPacks * p.pack()) { sender.sendMessage(messages.text("shop.bad_count", maxPacks * p.pack())); return true; }
                 if (sub.equals("buy")) trade.buy(player, p, pieces, windowTax); else trade.sell(player, p, pieces);
             }
-            case "reload" -> {
+            case "reload" -> reload(sender);
+            case "admin" -> {
+                if (!(sender instanceof Player player)) return true;
                 if (!sender.hasPermission("tokashop.admin")) { sender.sendMessage(messages.text("shop.admin_only")); return true; }
-                int changes = load();
-                sender.sendMessage(messages.text("shop.reloaded", catalogue.all().size(), changes));
+                admin.open(player);
             }
+            case "help" -> help(sender, args.length > 1 ? parsePage(args[1]) : 1);
             case "set", "enable", "disable" -> {
                 if (!sender.hasPermission("tokashop.admin")) { sender.sendMessage(messages.text("shop.admin_only")); return true; }
                 Product p = args.length > 1 ? catalogue.get(args[1].toUpperCase(java.util.Locale.ROOT)) : null;
                 if (p == null) { sender.sendMessage(messages.text("shop.unknown", args.length > 1 ? args[1] : "")); return true; }
-                var file = new File(getDataFolder(), "overrides.yml");
-                var config = new Config(file, Config.YAML);
-                String base = "items." + p.key();
-                if (sub.equals("set")) {
-                    Long buy = args.length > 2 ? parse(args[2]) : null, sell = args.length > 3 ? parse(args[3]) : null;
-                    if (buy == null || sell == null || !validPrice(buy) || !validPrice(sell)) { sender.sendMessage(messages.text("shop.bad_price")); return true; }
-                    config.set(base + ".buy", buy);
-                    config.set(base + ".sell", sell);
-                    config.remove(base + ".disabled");
-                } else if (sub.equals("disable")) config.set(base + ".disabled", true);
-                else config.remove(base + ".disabled");
-                config.save();
-                load();
-                sender.sendMessage(messages.text("shop.changed", p.key() + " " + p.name(language)));
+                if (sub.equals("set")) change(sender, p, args.length > 2 ? args[2] : "", args.length > 3 ? args[3] : "", true);
+                else change(sender, p, null, null, sub.equals("enable"));
             }
             default -> sender.sendMessage(messages.text("shop.usage"));
         }
+        return true;
+    }
+
+    private static int parsePage(String text) {
+        try { return Integer.parseInt(text.trim()); } catch (NumberFormatException bad) { return 1; }
+    }
+
+    private static final int HELP_PER_PAGE = 5;
+    /** Help topics in order; "a" marks the ones only admins may use */
+    private static final String[][] HELP = {{"open", ""}, {"buy", ""}, {"sell", ""}, {"price", ""}, {"help", ""}, {"admin", "a"}, {"set", "a"}, {"enable", "a"}, {"disable", "a"},
+            {"reload", "a"}, {"permissions", ""}, {"closed", ""}};
+
+    /** Paged help in the chat */
+    void help(CommandSender sender, int page) {
+        int pages = Paging.pages(HELP.length, HELP_PER_PAGE);
+        int current = Paging.clamp(page - 1, pages);
+        sender.sendMessage(messages.text("help.header", current + 1, pages));
+        for (int i = Paging.from(current, HELP_PER_PAGE); i < Paging.to(current, HELP_PER_PAGE, HELP.length); i++)
+            sender.sendMessage(messages.text("help." + HELP[i][0]) + (HELP[i][1].isEmpty() ? "" : messages.text("help.admin_tag")));
+    }
+
+    /** Reloads settings, language and overrides; trade, window and signs follow because they read them from here */
+    void reload(CommandSender sender) {
+        if (!sender.hasPermission("tokashop.admin")) { sender.sendMessage(messages.text("shop.admin_only")); return; }
+        int changes = load();
+        sender.sendMessage(messages.text("shop.reloaded", catalogue.all().size(), changes));
+    }
+
+    /**
+     * The one place that writes overrides.yml for /shop set|enable|disable and for the admin window. Prices are texts so both callers
+     * validate the same way; null for both leaves the prices as they are. Returns false when nothing was written.
+     */
+    boolean change(CommandSender sender, Product p, String buyText, String sellText, boolean enabled) {
+        if (!sender.hasPermission("tokashop.admin")) { sender.sendMessage(messages.text("shop.admin_only")); return false; }
+        boolean setting = buyText != null || sellText != null;
+        Long buy = buyText == null ? null : Pricing.parsePrice(buyText), sell = sellText == null ? null : Pricing.parsePrice(sellText);
+        if (setting && (buy == null || sell == null)) { sender.sendMessage(messages.text("shop.bad_price")); return false; }
+        var config = new Config(new File(getDataFolder(), "overrides.yml"), Config.YAML);
+        String base = "items." + p.key();
+        if (setting) {
+            config.set(base + ".buy", buy);
+            config.set(base + ".sell", sell);
+        }
+        if (enabled) config.remove(base + ".disabled"); else config.set(base + ".disabled", true);
+        config.save();
+        load();
+        sender.sendMessage(messages.text("shop.changed", p.key() + " " + p.name(language)));
         return true;
     }
 

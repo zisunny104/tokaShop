@@ -10,6 +10,7 @@ import cn.nukkit.form.element.ElementButtonImageData;
 import cn.nukkit.form.element.ElementDropdown;
 import cn.nukkit.form.element.ElementInput;
 import cn.nukkit.form.element.ElementLabel;
+import cn.nukkit.form.element.ElementSlider;
 import cn.nukkit.form.response.FormResponse;
 import cn.nukkit.form.response.FormResponseCustom;
 import cn.nukkit.form.response.FormResponseModal;
@@ -35,21 +36,27 @@ final class ShopWindow implements Listener {
     private final Main plugin;
     private final Map<FormWindow, Entry> open = Collections.synchronizedMap(new WeakHashMap<>());
 
+    private AdminWindow admin;
+
     ShopWindow(Main plugin) { this.plugin = plugin; }
 
-    private String text(String key, Object... args) { return plugin.messages().text(key, args); }
+    void admin(AdminWindow admin) { this.admin = admin; }
 
-    private void show(Player player, FormWindow window, Consumer<FormResponse> handler) {
+    String text(String key, Object... args) { return plugin.messages().text(key, args); }
+
+    void show(Player player, FormWindow window, Consumer<FormResponse> handler) {
         open.put(window, new Entry(player, handler));
         player.showFormWindow(window);
     }
 
-    private static ElementButton button(String label, String icon) {
+    static final String BACK = "textures/ui/arrow_left", NEXT = "textures/ui/arrow_right", SEARCH = "textures/ui/magnifyingGlass", CLOSE = "textures/ui/cancel";
+
+    static ElementButton button(String label, String icon) {
         return icon == null ? new ElementButton(label) : new ElementButton(label, new ElementButtonImageData("path", icon));
     }
 
     /** A simple window whose buttons run the given actions in order */
-    private void menu(Player player, String title, String body, List<ElementButton> buttons, List<Runnable> actions) {
+    void menu(Player player, String title, String body, List<ElementButton> buttons, List<Runnable> actions) {
         var window = new FormWindowSimple(title, body);
         buttons.forEach(window::addButton);
         show(player, window, r -> {
@@ -61,19 +68,30 @@ final class ShopWindow implements Listener {
         List<ElementButton> buttons = new ArrayList<>();
         List<Runnable> actions = new ArrayList<>();
         for (var category : Catalogue.LAYOUT.entrySet()) {
-            String icon = null;
-            for (String section : category.getValue()) {
+            String icon = categoryIcon(category.getKey());
+            if (icon == null) for (String section : category.getValue()) {
                 var families = plugin.catalogue().families(section);
                 if (!families.isEmpty() && families.get(0).first().icon() != null) { icon = families.get(0).first().icon(); break; }
             }
             buttons.add(button(category.getKey(), icon));
             actions.add(() -> sections(player, category.getKey()));
         }
-        buttons.add(new ElementButton(text("window.search")));
+        buttons.add(button(text("window.search"), SEARCH));
         actions.add(() -> search(player, ""));
-        buttons.add(new ElementButton(text("window.close")));
+        if (player.hasPermission("tokashop.admin")) {
+            buttons.add(button(text("window.admin"), "textures/ui/settings_glyph_color_2x"));
+            actions.add(() -> admin.open(player));
+        }
+        buttons.add(button(text("window.close"), CLOSE));
         actions.add(() -> { });
         menu(player, text("window.title"), text("window.pick_category"), buttons, actions);
+    }
+
+    /** The picture of a top category: the one in config window.icons.<category> (empty for none), else the hand-picked default */
+    private String categoryIcon(String category) {
+        String set = plugin.getConfig().getString("window.icons." + category, null);
+        if (set != null) return set.isBlank() ? null : set;
+        return Catalogue.ICONS.get(category);
     }
 
     private void sections(Player player, String category) {
@@ -86,7 +104,7 @@ final class ShopWindow implements Listener {
             buttons.add(button(section, list.isEmpty() ? null : list.get(0).first().icon()));
             actions.add(() -> families(player, category, section, 0));
         }
-        buttons.add(new ElementButton(text("window.back")));
+        buttons.add(button(text("window.back"), BACK));
         actions.add(() -> open(player));
         menu(player, category, text("window.pick_section"), buttons, actions);
     }
@@ -94,17 +112,17 @@ final class ShopWindow implements Listener {
     private void families(Player player, String category, String section, int page) {
         List<Catalogue.Family> all = plugin.catalogue().families(section).stream().filter(f -> f.members().stream().anyMatch(p -> p.canBuy() || p.canSell())).toList();
         int per = plugin.perPage();
-        int pages = Math.max(1, (all.size() + per - 1) / per);
-        int current = Math.min(Math.max(page, 0), pages - 1);
+        int pages = Paging.pages(all.size(), per);
+        int current = Paging.clamp(page, pages);
         List<ElementButton> buttons = new ArrayList<>();
         List<Runnable> actions = new ArrayList<>();
-        for (var family : all.subList(current * per, Math.min(all.size(), (current + 1) * per))) {
+        for (var family : all.subList(Paging.from(current, per), Paging.to(current, per, all.size()))) {
             buttons.add(button(label(family), family.first().icon()));
             actions.add(() -> item(player, family, () -> families(player, category, section, current)));
         }
-        if (current > 0) { buttons.add(new ElementButton(text("window.prev"))); actions.add(() -> families(player, category, section, current - 1)); }
-        if (current < pages - 1) { buttons.add(new ElementButton(text("window.next"))); actions.add(() -> families(player, category, section, current + 1)); }
-        buttons.add(new ElementButton(text("window.back")));
+        if (current > 0) { buttons.add(button(text("window.prev"), BACK)); actions.add(() -> families(player, category, section, current - 1)); }
+        if (current < pages - 1) { buttons.add(button(text("window.next"), NEXT)); actions.add(() -> families(player, category, section, current + 1)); }
+        buttons.add(button(text("window.back"), BACK));
         actions.add(() -> { if (Catalogue.LAYOUT.get(category).size() == 1) open(player); else sections(player, category); });
         menu(player, section, text("window.list_text", all.size(), current + 1, pages), buttons, actions);
     }
@@ -132,19 +150,19 @@ final class ShopWindow implements Listener {
         for (Product p : found) grouped.computeIfAbsent(p.section() + "|" + p.family(), k -> new ArrayList<>()).add(p);
         List<Catalogue.Family> families = grouped.values().stream().map(m -> new Catalogue.Family(m.get(0).family(), m.get(0).section(), m)).toList();
         int per = plugin.perPage();
-        int pages = Math.max(1, (families.size() + per - 1) / per);
-        int current = Math.min(Math.max(page, 0), pages - 1);
+        int pages = Paging.pages(families.size(), per);
+        int current = Paging.clamp(page, pages);
         List<ElementButton> buttons = new ArrayList<>();
         List<Runnable> actions = new ArrayList<>();
-        for (var family : families.subList(current * per, Math.min(families.size(), (current + 1) * per))) {
+        for (var family : families.subList(Paging.from(current, per), Paging.to(current, per, families.size()))) {
             buttons.add(button(label(family), family.first().icon()));
             actions.add(() -> item(player, family, () -> results(player, word, current)));
         }
-        if (current > 0) { buttons.add(new ElementButton(text("window.prev"))); actions.add(() -> results(player, word, current - 1)); }
-        if (current < pages - 1) { buttons.add(new ElementButton(text("window.next"))); actions.add(() -> results(player, word, current + 1)); }
-        buttons.add(new ElementButton(text("window.search")));
+        if (current > 0) { buttons.add(button(text("window.prev"), BACK)); actions.add(() -> results(player, word, current - 1)); }
+        if (current < pages - 1) { buttons.add(button(text("window.next"), NEXT)); actions.add(() -> results(player, word, current + 1)); }
+        buttons.add(button(text("window.search"), SEARCH));
         actions.add(() -> search(player, word));
-        buttons.add(new ElementButton(text("window.back")));
+        buttons.add(button(text("window.back"), BACK));
         actions.add(() -> open(player));
         menu(player, text("window.search"), families.isEmpty() ? text("window.no_match", word) : text("window.list_text", families.size(), current + 1, pages), buttons, actions);
     }
@@ -163,15 +181,22 @@ final class ShopWindow implements Listener {
         } else {
             window.addElement(new ElementLabel(text("window.variant_line", first.name(plugin.language()), price(first.buy()), price(first.sell()))));
         }
-        window.addElement(new ElementDropdown(text("window.action"), List.of(text("window.buy"), text("window.sell")), first.canBuy() ? 0 : 1));
-        window.addElement(new ElementInput(text("window.packs", plugin.maxPacks()), "1", "1"));
+        // only sides that are open for some variant are offered; buying comes first
+        boolean anyBuy = members.stream().anyMatch(Product::canBuy), anySell = members.stream().anyMatch(Product::canSell);
+        List<String> sides = new ArrayList<>();
+        if (anyBuy) sides.add(text("window.buy"));
+        if (anySell) sides.add(text("window.sell"));
+        if (sides.size() > 1) window.addElement(new ElementDropdown(text("window.action"), sides, 0));
+        else window.addElement(new ElementLabel(text("window.action") + "：" + sides.get(0)));
+        int most = plugin.maxPacks();
+        if (most > 1) window.addElement(new ElementSlider(text("window.packs", most), 1, most, 1, 1));
+        else window.addElement(new ElementLabel(text("window.packs", most)));
         show(player, window, r -> {
             if (!(r instanceof FormResponseCustom c)) return;
             Product chosen = members.size() > 1 ? members.get(c.getDropdownResponse(1).getElementID()) : first;
-            boolean buying = c.getDropdownResponse(members.size() > 1 ? 2 : 2).getElementID() == 0;
-            int packs;
-            try { packs = Integer.parseInt(c.getInputResponse(3).trim()); } catch (NumberFormatException | NullPointerException bad) { packs = 0; }
-            if (packs < 1 || packs > plugin.maxPacks()) { player.sendMessage(text("shop.bad_count", plugin.maxPacks())); item(player, family, back); return; }
+            boolean buying = sides.size() > 1 ? (anyBuy && c.getDropdownResponse(2).getElementID() == 0) : anyBuy;
+            int packs = most > 1 ? Math.round(c.getSliderResponse(3)) : 1;
+            if (packs < 1 || packs > most) { player.sendMessage(text("shop.bad_count", most)); item(player, family, back); return; }
             confirm(player, family, chosen, buying, packs, back);
         });
     }
