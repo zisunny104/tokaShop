@@ -26,17 +26,6 @@ final class Money {
         return call("depositOnce", id, amount, reason, operation);
     }
 
-    /** Gives back what a withdrawal took, by the operation id it was made with */
-    CompletableFuture<Outcome> refund(UUID id, String reason, String operation) {
-        try {
-            Class<?> economy = Class.forName("dev.toka.economy.Economy"), cause = Class.forName("dev.toka.economy.Cause");
-            Object debit = cause.getConstructor(String.class, String.class).newInstance("shop", "tokaShop");
-            Object back = cause.getConstructor(String.class, String.class).newInstance(reason, "tokaShop");
-            Object future = economy.getMethod("refundWithdrawalOnce", UUID.class, cause, String.class, cause).invoke(null, id, debit, operation, back);
-            return outcome(future);
-        } catch (ReflectiveOperationException | LinkageError error) { return CompletableFuture.completedFuture(Outcome.UNAVAILABLE); }
-    }
-
     private CompletableFuture<Outcome> call(String method, UUID id, long amount, String reason, String operation) {
         try {
             Class<?> economy = Class.forName("dev.toka.economy.Economy"), cause = Class.forName("dev.toka.economy.Cause");
