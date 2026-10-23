@@ -1,0 +1,22 @@
+# 介面與物品名稱的語言，物品預設顯示這個語言的原版名稱（zh-TW 或 en-US）
+language: zh-TW
+
+# 買賣使用的貨幣代碼（tokaEconomy 的設定）
+currency: money
+
+# 消費稅，百分比，向上取整數；0 為不收
+tax:
+  # 在商店視窗購買
+  window: 5
+  # 在告示牌購買（告示牌的價格已含稅概念，預設不另收）
+  sign: 0
+  # 稅金存入的帳戶（玩家或國庫的 UUID）；留空則稅金不存入任何帳戶
+  account: ""
+
+window:
+  # 品項清單每頁幾筆
+  per-page: 30
+  # 單次最多買或賣幾組
+  max-packs: 36
+
+# 個別品項的價格、名稱與停用請寫在 overrides.yml，不要改這個檔案

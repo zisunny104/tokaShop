@@ -1,0 +1,18 @@
+name: tokaShop
+main: dev.toka.shop.Main
+version: "0.1.0"
+api: ["1.0.4"]
+load: POSTWORLD
+softdepend: [tokaEconomy, tokaSigns, tokaRegions, tokaDisplay, tokaProfiles]
+commands:
+  shop:
+    description: 商店
+    usage: /shop [buy|sell|price|reload|set|enable|disable]
+    permission: tokashop.use
+permissions:
+  tokashop.use:
+    description: 使用商店
+    default: true
+  tokashop.admin:
+    description: 管理商店價格與品項
+    default: op
