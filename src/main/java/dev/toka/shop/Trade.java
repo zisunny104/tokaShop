@@ -21,9 +21,15 @@ final class Trade {
     /** The item for a product, or null when the server does not know its id */
     static Item item(Product product, int count) {
         try {
-            Item item = Item.fromString(product.id());
+            Item item = null;
+            // the game's own table of identifiers first; the old name lookup only knows the names the core was compiled with
+            var entry = cn.nukkit.item.RuntimeItems.getMapping().fromIdentifier("minecraft:" + product.id());
+            if (entry != null) item = Item.get(entry.getLegacyId(), product.damage() > 0 ? product.damage() : entry.getDamage());
+            if (item == null || item.isNull() || item.getId() == 0) {
+                item = Item.fromString(product.id());
+                if (item != null && product.damage() > 0) item.setDamage(product.damage());
+            }
             if (item == null || item.isNull() || item.getId() == 0) return null;
-            if (product.damage() > 0) item.setDamage(product.damage());
             item.setCount(count);
             return item;
         } catch (RuntimeException | LinkageError unknown) { return null; }
