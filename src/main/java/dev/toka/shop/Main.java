@@ -107,6 +107,12 @@ public final class Main extends PluginBase {
         return out;
     }
 
+    private static Long parse(String text) {
+        try { return Long.parseLong(text.trim()); } catch (NumberFormatException bad) { return null; }
+    }
+
+    private static boolean validPrice(long value) { return value == -1 || value >= 1; }
+
     private static Long number(Object o) { return o instanceof Number n ? n.longValue() : null; }
 
     /** A product whose id this server does not know cannot be traded: it is closed, and counted once in the log. */
@@ -180,13 +186,13 @@ public final class Main extends PluginBase {
         String sub = args[0].toLowerCase(java.util.Locale.ROOT);
         switch (sub) {
             case "price" -> {
-                Product p = args.length > 1 ? catalogue.get(args[1]) : null;
+                Product p = args.length > 1 ? catalogue.get(args[1].toUpperCase(java.util.Locale.ROOT)) : null;
                 if (p == null) { sender.sendMessage(messages.text("shop.unknown", args.length > 1 ? args[1] : "")); return true; }
                 sender.sendMessage(messages.text("shop.price_line", p.name(language), p.pack(), price(p.buy()), price(p.sell())));
             }
             case "buy", "sell" -> {
                 if (!(sender instanceof Player player)) return true;
-                Product p = args.length > 1 ? catalogue.get(args[1]) : null;
+                Product p = args.length > 1 ? catalogue.get(args[1].toUpperCase(java.util.Locale.ROOT)) : null;
                 if (p == null) { sender.sendMessage(messages.text("shop.unknown", args.length > 1 ? args[1] : "")); return true; }
                 int pieces = p.pack();
                 if (args.length > 2) {
@@ -200,7 +206,25 @@ public final class Main extends PluginBase {
                 int changes = load();
                 sender.sendMessage(messages.text("shop.reloaded", catalogue.all().size(), changes));
             }
-            case "set", "enable", "disable" -> sender.sendMessage(messages.text(sender.hasPermission("tokashop.admin") ? "shop.usage" : "shop.admin_only"));
+            case "set", "enable", "disable" -> {
+                if (!sender.hasPermission("tokashop.admin")) { sender.sendMessage(messages.text("shop.admin_only")); return true; }
+                Product p = args.length > 1 ? catalogue.get(args[1].toUpperCase(java.util.Locale.ROOT)) : null;
+                if (p == null) { sender.sendMessage(messages.text("shop.unknown", args.length > 1 ? args[1] : "")); return true; }
+                var file = new File(getDataFolder(), "overrides.yml");
+                var config = new Config(file, Config.YAML);
+                String base = "items." + p.key();
+                if (sub.equals("set")) {
+                    Long buy = args.length > 2 ? parse(args[2]) : null, sell = args.length > 3 ? parse(args[3]) : null;
+                    if (buy == null || sell == null || !validPrice(buy) || !validPrice(sell)) { sender.sendMessage(messages.text("shop.bad_price")); return true; }
+                    config.set(base + ".buy", buy);
+                    config.set(base + ".sell", sell);
+                    config.remove(base + ".disabled");
+                } else if (sub.equals("disable")) config.set(base + ".disabled", true);
+                else config.remove(base + ".disabled");
+                config.save();
+                load();
+                sender.sendMessage(messages.text("shop.changed", p.key() + " " + p.name(language)));
+            }
             default -> sender.sendMessage(messages.text("shop.usage"));
         }
         return true;

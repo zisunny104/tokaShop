@@ -18,7 +18,7 @@ shop:
   reloaded: "§e[商店] §a已重新載入：${0} 個品項，${1} 項個別設定。"
   changed: "§e[商店] §a${0} 已更新。"
   bad_price: "§e[商店] §c價格只能是 -1（關閉）或 1 以上的整數。"
-  usage: "§e[商店] §f用法：/shop buy|sell <代碼> [個數]、/shop price <代碼>"
+  usage: "§e[商店] §f用法：/shop buy|sell <代碼> [個數]、/shop price <代碼>；管理員：/shop set <代碼> <買價> <賣價>（-1 為關閉）、/shop enable|disable <代碼>、/shop reload"
   unit: "銀幣"
   sign_changed: "§e[商店] §c牌面上的價格或數量和現在的設定不同，已取消這次交易並更新牌面，請再點一次。"
 window:

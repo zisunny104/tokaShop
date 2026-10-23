@@ -18,7 +18,7 @@ shop:
   reloaded: "§e[Shop] §aReloaded: ${0} products, ${1} overrides."
   changed: "§e[Shop] §a${0} updated."
   bad_price: "§e[Shop] §cA price is -1 (closed) or a whole number of 1 or more."
-  usage: "§e[Shop] §fUsage: /shop buy|sell <key> [pieces], /shop price <key>"
+  usage: "§e[Shop] §fUsage: /shop buy|sell <code> [pieces], /shop price <code>; admins: /shop set <code> <buy> <sell> (-1 closes), /shop enable|disable <code>, /shop reload"
   unit: "Silver"
   sign_changed: "§e[Shop] §cThe sign showed an old price or amount. The trade was cancelled and the sign updated; click again."
 window:
