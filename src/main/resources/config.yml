@@ -10,7 +10,7 @@ tax:
   window: 5
   # 在告示牌購買（告示牌的價格已含稅概念，預設不另收）
   sign: 0
-  # 稅金存入的帳戶（玩家或國庫的 UUID）；留空則稅金不存入任何帳戶
+  # 稅金存入的帳戶（UUID）；留空則存入 tokaRegions 的主國庫
   account: ""
 
 window:

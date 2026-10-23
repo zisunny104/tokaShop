@@ -23,6 +23,7 @@ public final class Main extends PluginBase {
     private String language;
     private int windowTax, signTax, maxPacks, perPage;
     private ShopWindow window;
+    private SignLink signs;
     private UUID taxAccount;
 
     @Override public void onEnable() {
@@ -39,7 +40,31 @@ public final class Main extends PluginBase {
         validateItems();
         window = new ShopWindow(this);
         getServer().getPluginManager().registerEvents(window, this);
+        getServer().getPluginManager().registerEvents(new cn.nukkit.event.Listener() {
+            @cn.nukkit.event.EventHandler public void on(cn.nukkit.event.plugin.PluginEnableEvent e) {
+                if (e.getPlugin().getName().equals("tokaSigns")) getServer().getScheduler().scheduleTask(Main.this, Main.this::linkSigns);
+            }
+        }, this);
+        linkSigns();
     }
+
+    @Override public void onDisable() {
+        if (signs != null) signs.unregister();
+    }
+
+    private void linkSigns() {
+        if (signs == null) {
+            Map<String, String> barcodes = new HashMap<>();
+            try (var in = getResource("barcodes.json")) {
+                new com.google.gson.Gson().fromJson(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8), com.google.gson.JsonObject.class)
+                        .entrySet().forEach(e -> barcodes.put(e.getKey(), e.getValue().getAsString()));
+            } catch (IOException | RuntimeException error) { getLogger().warning("舊條碼對照讀取失敗：" + error); }
+            signs = new SignLink(this, barcodes);
+        }
+        if (signs.register()) getLogger().info("商店告示牌（購買、回收、物品管理）已接上 tokaSigns");
+    }
+
+    void openWindow(Player player) { window.open(player); }
 
     /** Reads the config and the server's own changes again */
     private int load() {
@@ -119,7 +144,17 @@ public final class Main extends PluginBase {
 
     /** Tax goes to the configured account; with none set it is simply taken out of circulation */
     void payTax(long tax, String operation) {
-        if (taxAccount != null) money.deposit(taxAccount, tax, "tax", operation + ":tax");
+        UUID account = taxAccount != null ? taxAccount : treasury();
+        if (account != null) money.deposit(account, tax, "tax", operation + ":tax");
+        else getLogger().warning("找不到主國庫，這筆消費稅 " + tax + " 沒有存入任何帳戶");
+    }
+
+    /** The main treasury of tokaRegions, when that plugin is there and one region holds it */
+    private UUID treasury() {
+        try {
+            Object id = Class.forName("dev.toka.regions.Main").getMethod("treasuryAccount").invoke(null);
+            return id == null ? null : UUID.fromString(String.valueOf(id));
+        } catch (ReflectiveOperationException | LinkageError | IllegalArgumentException absent) { return null; }
     }
 
     /** Buying and selling for other plugins (signs, windows) */
