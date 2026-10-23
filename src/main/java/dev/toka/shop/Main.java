@@ -21,7 +21,8 @@ public final class Main extends PluginBase {
     private List<Product> shipped;
     private volatile Catalogue catalogue;
     private String language;
-    private int windowTax, signTax, maxPacks;
+    private int windowTax, signTax, maxPacks, perPage;
+    private ShopWindow window;
     private UUID taxAccount;
 
     @Override public void onEnable() {
@@ -36,6 +37,8 @@ public final class Main extends PluginBase {
         load();
         trade = new Trade(this, money, messages);
         validateItems();
+        window = new ShopWindow(this);
+        getServer().getPluginManager().registerEvents(window, this);
     }
 
     /** Reads the config and the server's own changes again */
@@ -48,6 +51,7 @@ public final class Main extends PluginBase {
         windowTax = Math.max(0, config.getInt("tax.window", 5));
         signTax = Math.max(0, config.getInt("tax.sign", 0));
         maxPacks = Math.max(1, config.getInt("window.max-packs", 36));
+        perPage = Math.max(5, config.getInt("window.per-page", 30));
         String account = config.getString("tax.account", "");
         try { taxAccount = account.isBlank() ? null : UUID.fromString(account.trim()); }
         catch (IllegalArgumentException bad) { taxAccount = null; getLogger().warning("tax.account 不是有效的 UUID，稅金不存入帳戶"); }
@@ -95,13 +99,21 @@ public final class Main extends PluginBase {
 
     String language() { return language; }
 
+    Messages messages() { return messages; }
+
+    int windowTax() { return windowTax; }
+
+    int maxPacks() { return maxPacks; }
+
+    int perPage() { return perPage; }
+
     Catalogue catalogue() { return catalogue; }
 
     long balanceOf(UUID id) {
         try {
             Class<?> economy = Class.forName("dev.toka.economy.Economy");
             Object r = economy.getMethod("balance", UUID.class, String.class).invoke(null, id, getConfig().getString("currency", "money"));
-            return r instanceof Number n ? n.longValue() : 0;
+            return (Long) r.getClass().getMethod("balance").invoke(r);
         } catch (ReflectiveOperationException | LinkageError unknown) { return 0; }
     }
 
@@ -124,7 +136,10 @@ public final class Main extends PluginBase {
     }
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length == 0) { sender.sendMessage(messages.text("shop.usage")); return true; }
+        if (args.length == 0) {
+            if (sender instanceof Player player) window.open(player); else sender.sendMessage(messages.text("shop.usage"));
+            return true;
+        }
         String sub = args[0].toLowerCase(java.util.Locale.ROOT);
         switch (sub) {
             case "price" -> {
