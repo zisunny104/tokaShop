@@ -56,8 +56,7 @@ final class Trade {
             for (Item rest : left) player.getLevel().dropItem(player, rest);
             if (tax > 0) plugin.payTax(tax, operation);
             String taxPart = tax > 0 ? messages.text("shop.bought_tax", money(tax)) : "";
-            say(player, messages.text("shop.bought", name(product), pieces, money(total + tax), taxPart, money(paid.balance())),
-                    messages.text("shop.slip_buy", name(product), pieces, money(total + tax), taxPart, money(paid.balance())));
+            say(player, messages.text("shop.bought", name(product), pieces, money(total + tax), taxPart, money(paid.balance())));
         }));
     }
 
@@ -86,17 +85,18 @@ final class Trade {
                 say(player, messages.text("shop.failed", paid.status()));
                 return;
             }
-            say(player, messages.text("shop.sold", name(product), pieces, money(total), money(paid.balance())),
-                    messages.text("shop.slip_sell", name(product), pieces, money(total), money(paid.balance())));
+            say(player, messages.text("shop.sold", name(product), pieces, money(total), money(paid.balance())));
         }));
     }
 
-    /** The result goes to the chat as the record, and to the top of the screen like a receipt handed over at a counter */
-    private static void say(Player player, String line) { say(player, line, null); }
-
-    private static void say(Player player, String line, String top) {
+    /** The result goes to the chat as the record, and the same line, without the shop's tag, to the top of the screen */
+    private static void say(Player player, String line) {
         player.sendMessage(line);
-        player.sendActionBar(top != null ? top : cn.nukkit.utils.TextFormat.clean(line).replaceFirst("^\\[[^\\]]*\\]\\s*", ""));
+        String top = line.replaceFirst("^§.\\[[^\\]]*\\]\\s*", "");
+        try {
+            var flash = Class.forName("dev.toka.display.Main").getMethod("flash", Player.class, String.class, int.class, float.class, String.class);
+            flash.invoke(null, player, top, 0, -1f, null);
+        } catch (ReflectiveOperationException | LinkageError noDisplay) { player.sendActionBar(top); }
     }
 
     private String money(long value) { return String.format("%,d", value) + " " + messages.text("shop.unit"); }
