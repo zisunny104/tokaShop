@@ -20,6 +20,7 @@ shop:
   bad_price: "§e[Shop] §cA price is -1 (closed) or a whole number of 1 or more."
   usage: "§e[Shop] §fUsage: /shop buy|sell <key> [pieces], /shop price <key>"
   unit: "Silver"
+  sign_changed: "§e[Shop] §cThe sign showed an old price or amount. The trade was cancelled and the sign updated; click again."
 window:
   title: "Shop"
   pick_category: "Pick a category"

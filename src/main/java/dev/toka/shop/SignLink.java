@@ -77,9 +77,31 @@ final class SignLink {
             if (type == MANAGE) { plugin.openWindow(player); return true; }
             Product p = product(record);
             if (p == null) { player.sendMessage(plugin.messages().text("shop.unknown", "?")); return true; }
+            if (!faceMatches(player, record)) return true;
             if (type == BUY) plugin.buy(player, p.key(), p.pack(), true); else plugin.sell(player, p.key(), p.pack());
             return true;
         } catch (ReflectiveOperationException error) { return false; }
+    }
+
+    /**
+     * A sign trades at the price now, so what is written on it has to be that price. When the face differs (a price or a pack changed
+     * since it was written, or it is an old sign), nothing is traded: the player is told and the face is rewritten.
+     */
+    private boolean faceMatches(Player player, Object record) throws ReflectiveOperationException {
+        String[] expected;
+        try {
+            expected = (String[]) api.getMethod("currentText", Player.class, record.getClass()).invoke(null, player, record);
+        } catch (NoSuchMethodException oldSigns) { return true; }
+        if (expected == null) return true;
+        var level = plugin.getServer().getLevelByName(String.valueOf(record.getClass().getMethod("world").invoke(record)));
+        if (level == null) return true;
+        int x = (Integer) record.getClass().getMethod("x").invoke(record), y = (Integer) record.getClass().getMethod("y").invoke(record),
+                z = (Integer) record.getClass().getMethod("z").invoke(record);
+        if (!(level.getBlockEntity(new cn.nukkit.math.Vector3(x, y, z)) instanceof cn.nukkit.blockentity.BlockEntitySign sign)) return true;
+        if (java.util.Arrays.equals(sign.getText(), expected)) return true;
+        sign.setText(expected);
+        player.sendMessage(plugin.messages().text("shop.sign_changed"));
+        return false;
     }
 
     /** What the sign shows: the name, the pack and the price of the pack. Null when the sign has nothing to show (the side is closed). */
