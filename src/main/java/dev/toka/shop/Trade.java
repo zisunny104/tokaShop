@@ -32,35 +32,37 @@ final class Trade {
     private String name(Product p) { return p.name(plugin.language()); }
 
     void buy(Player player, Product product, int pieces, int taxPercent) {
-        if (!money.present()) { player.sendMessage(messages.text("shop.no_economy")); return; }
-        if (!product.canBuy()) { player.sendMessage(messages.text("shop.closed_buy", name(product))); return; }
+        if (!money.present()) { say(player, messages.text("shop.no_economy")); return; }
+        if (!product.canBuy()) { say(player, messages.text("shop.closed_buy", name(product))); return; }
         Item item = item(product, pieces);
-        if (item == null) { player.sendMessage(messages.text("shop.unknown", product.key())); return; }
-        if (!player.getInventory().canAddItem(item)) { player.sendMessage(messages.text("shop.no_space", name(product), pieces)); return; }
+        if (item == null) { say(player, messages.text("shop.unknown", product.key())); return; }
+        if (!player.getInventory().canAddItem(item)) { say(player, messages.text("shop.no_space", name(product), pieces)); return; }
         long total = Pricing.buyTotal(product.buy(), product.pack(), pieces);
         long tax = Pricing.tax(total, taxPercent);
         UUID id = player.getUniqueId();
         String operation = "shop-buy:" + UUID.randomUUID();
         money.withdraw(id, total + tax, "buy:" + product.key(), operation).thenAccept(paid -> run(() -> {
             if (!paid.ok()) {
-                player.sendMessage(paid.status().equals("INSUFFICIENT_FUNDS") ? messages.text("shop.broke", total + tax, plugin.balanceOf(id)) : messages.text("shop.failed", paid.status()));
+                say(player, paid.status().equals("INSUFFICIENT_FUNDS") ? messages.text("shop.broke", money(total + tax), money(plugin.balanceOf(id))) : messages.text("shop.failed", paid.status()));
                 return;
             }
             Item[] left = player.getInventory().addItem(item);
             for (Item rest : left) player.getLevel().dropItem(player, rest);
             if (tax > 0) plugin.payTax(tax, operation);
-            player.sendMessage(messages.text("shop.bought", pieces, name(product), total + tax, tax > 0 ? messages.text("shop.bought_tax", tax) : "", paid.balance()));
+            String taxPart = tax > 0 ? messages.text("shop.bought_tax", money(tax)) : "";
+            say(player, messages.text("shop.bought", name(product), pieces, money(total + tax), taxPart, money(paid.balance())),
+                    messages.text("shop.slip_buy", name(product), pieces, money(total + tax), taxPart, money(paid.balance())));
         }));
     }
 
     void sell(Player player, Product product, int pieces) {
-        if (!money.present()) { player.sendMessage(messages.text("shop.no_economy")); return; }
-        if (!product.canSell()) { player.sendMessage(messages.text("shop.closed_sell", name(product))); return; }
+        if (!money.present()) { say(player, messages.text("shop.no_economy")); return; }
+        if (!product.canSell()) { say(player, messages.text("shop.closed_sell", name(product))); return; }
         Item wanted = item(product, 1);
-        if (wanted == null) { player.sendMessage(messages.text("shop.unknown", product.key())); return; }
+        if (wanted == null) { say(player, messages.text("shop.unknown", product.key())); return; }
         int have = 0;
         for (Item held : player.getInventory().getContents().values()) if (held.equals(wanted, true, true)) have += held.getCount();
-        if (have < pieces) { player.sendMessage(messages.text("shop.too_few", name(product), have)); return; }
+        if (have < pieces) { say(player, messages.text("shop.too_few", name(product), have)); return; }
         Item take = item(product, pieces);
         Item[] failed = player.getInventory().removeItem(take);
         if (failed.length > 0) {
@@ -68,19 +70,30 @@ final class Trade {
             int missing = 0;
             for (Item f : failed) missing += f.getCount();
             if (pieces - missing > 0) player.getInventory().addItem(item(product, pieces - missing));
-            player.sendMessage(messages.text("shop.too_few", name(product), have - missing));
+            say(player, messages.text("shop.too_few", name(product), have - missing));
             return;
         }
         long total = Pricing.sellTotal(product.sell(), product.pack(), pieces);
         money.deposit(player.getUniqueId(), total, "sell:" + product.key(), "shop-sell:" + UUID.randomUUID()).thenAccept(paid -> run(() -> {
             if (!paid.ok()) {
                 for (Item rest : player.getInventory().addItem(item(product, pieces))) player.getLevel().dropItem(player, rest);
-                player.sendMessage(messages.text("shop.failed", paid.status()));
+                say(player, messages.text("shop.failed", paid.status()));
                 return;
             }
-            player.sendMessage(messages.text("shop.sold", pieces, name(product), total, paid.balance()));
+            say(player, messages.text("shop.sold", name(product), pieces, money(total), money(paid.balance())),
+                    messages.text("shop.slip_sell", name(product), pieces, money(total), money(paid.balance())));
         }));
     }
+
+    /** The result goes to the chat as the record, and to the top of the screen like a receipt handed over at a counter */
+    private static void say(Player player, String line) { say(player, line, null); }
+
+    private static void say(Player player, String line, String top) {
+        player.sendMessage(line);
+        player.sendActionBar(top != null ? top : cn.nukkit.utils.TextFormat.clean(line).replaceFirst("^\[[^\]]*\]\s*", ""));
+    }
+
+    private String money(long value) { return String.format("%,d", value) + " " + messages.text("shop.unit"); }
 
     private void run(Runnable task) {
         Server.getInstance().getScheduler().scheduleTask(plugin, task);
