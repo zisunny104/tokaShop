@@ -13,6 +13,10 @@ tax:
   # 稅金存入的帳戶（UUID）；留空則存入 tokaRegions 的主國庫
   account: ""
 
+# 交易結果一定會寫進聊天室當紀錄；top 為 true 時，同一行也會顯示在頂部（tokaDisplay），false 則只留聊天室
+notice:
+  top: true
+
 window:
   # 品項清單每頁幾筆
   per-page: 30

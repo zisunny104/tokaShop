@@ -132,6 +132,8 @@ public final class Main extends PluginBase {
 
     int perPage() { return perPage; }
 
+    boolean topNotice() { return getConfig().getBoolean("notice.top", true); }
+
     Catalogue catalogue() { return catalogue; }
 
     long balanceOf(UUID id) {

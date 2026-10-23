@@ -90,8 +90,9 @@ final class Trade {
     }
 
     /** The result goes to the chat as the record, and the same line, without the shop's tag, to the top of the screen */
-    private static void say(Player player, String line) {
+    private void say(Player player, String line) {
         player.sendMessage(line);
+        if (!plugin.topNotice()) return;
         String top = line.replaceFirst("^§.\\[[^\\]]*\\]\\s*", "");
         try {
             var flash = Class.forName("dev.toka.display.Main").getMethod("flash", Player.class, String.class, int.class, float.class, String.class);
