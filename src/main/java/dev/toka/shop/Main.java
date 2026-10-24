@@ -145,9 +145,10 @@ public final class Main extends PluginBase {
     /** A product whose id this server does not know cannot be traded: it is closed, and counted once in the log. */
     private void validateItems() {
         int unknown = 0;
+        List<String> unknownIds = new java.util.ArrayList<>();
         List<Product> kept = new java.util.ArrayList<>();
         for (Product p : shipped) {
-            if (Trade.item(p, 1) == null) { unknown++; kept.add(p.withPrices(-1, -1)); } else kept.add(p);
+            if (Trade.item(p, 1) == null) { unknown++; unknownIds.add(p.id()); kept.add(p.withPrices(-1, -1)); } else kept.add(p);
         }
         shipped = kept;
         overrides = readOverrides();
@@ -155,6 +156,7 @@ public final class Main extends PluginBase {
         long open = catalogue.all().stream().filter(p -> p.canBuy() || p.canSell()).count();
         getLogger().info(messages.text("log.shop_count", shipped.size(), open));
         if (unknown > 0) getLogger().warning(messages.text("log.shop_unknown", unknown));
+        if (unknown > 0) getLogger().info(messages.text("log.shop_unknown_ids", String.join(" ", unknownIds.stream().distinct().limit(80).toList())));
     }
 
     String language() { return language; }
