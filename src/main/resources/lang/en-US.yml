@@ -23,8 +23,6 @@ shop:
   sign_changed: "§e[Shop] §cThe sign showed an old price or amount. The trade was cancelled and the sign updated; click again."
 window:
   title: "Shop"
-  pick_category: "Pick a category"
-  pick_section: "Pick a section"
   list_text: "${0} entries, page ${1}/${2}"
   family_label: "${0} (${1} kinds)"
   search: "Search"
@@ -53,7 +51,11 @@ window:
   admin: "Manage"
   admin_title: "Shop management"
   admin_line: "buy ${0} / sell ${1}"
-  admin_product: "${0}  pack of ${1}"
+  admin_product: "Code  ${0}
+Item  ${1}
+Names  ${2}
+Belongs to  ${3}
+Pack  ${4}"
   admin_buy: "Buy price (per pack, -1 closes)"
   admin_sell: "Sell price (per pack, -1 closes)"
   admin_enabled: "Open"

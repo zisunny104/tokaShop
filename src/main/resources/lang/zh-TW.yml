@@ -23,8 +23,6 @@ shop:
   sign_changed: "§e[商店] §c牌面上的價格或數量和現在的設定不同，已取消這次交易並更新牌面，請再點一次。"
 window:
   title: "商店"
-  pick_category: "選擇類別"
-  pick_section: "選擇區段"
   list_text: "共 ${0} 項　第 ${1}/${2} 頁"
   family_label: "${0}（${1} 種）"
   search: "搜尋"
@@ -53,7 +51,11 @@ window:
   admin: "管理"
   admin_title: "商店管理"
   admin_line: "買 ${0}／賣 ${1}"
-  admin_product: "${0}　每組 ${1} 個"
+  admin_product: "代碼　${0}
+物品　${1}
+名稱　${2}
+歸屬　${3}
+每組　${4} 個"
   admin_buy: "買價（每組，-1 關閉）"
   admin_sell: "賣價（每組，-1 關閉）"
   admin_enabled: "開放"

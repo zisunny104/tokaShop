@@ -2,6 +2,8 @@ package dev.toka.shop;
 
 import cn.nukkit.Player;
 import cn.nukkit.form.element.ElementButton;
+import cn.nukkit.form.element.ElementDivider;
+import cn.nukkit.form.element.ElementHeader;
 import cn.nukkit.form.element.ElementInput;
 import cn.nukkit.form.element.ElementLabel;
 import cn.nukkit.form.element.ElementToggle;
@@ -69,14 +71,17 @@ final class AdminWindow {
         if (!allowed(player)) return;
         Product p = plugin.enabledView(listed);
         var window = new FormWindowCustom(p.key());
-        window.addElement(new ElementLabel(ui.text("window.admin_product", p.name(plugin.language()), p.pack())));
+        window.addElement(new ElementHeader(p.name(plugin.language())));
+        String names = String.join(" / ", new java.util.TreeMap<>(p.names()).values());
+        window.addElement(new ElementLabel(ui.text("window.admin_product", p.key(), p.id() + ":" + p.damage(), names, p.category() + " / " + p.section(), p.pack())));
+        window.addElement(new ElementDivider());
         window.addElement(new ElementInput(ui.text("window.admin_buy"), "-1", String.valueOf(p.buy())));
         window.addElement(new ElementInput(ui.text("window.admin_sell"), "-1", String.valueOf(p.sell())));
         window.addElement(new ElementToggle(ui.text("window.admin_enabled"), !plugin.disabledByOverride(p)));
         ui.show(player, window, r -> {
             if (!(r instanceof FormResponseCustom c)) return;
-            String buy = c.getInputResponse(1) == null ? "" : c.getInputResponse(1), sell = c.getInputResponse(2) == null ? "" : c.getInputResponse(2);
-            if (plugin.change(player, p, buy, sell, c.getToggleResponse(3))) back.run(); else edit(player, listed, back);
+            String buy = c.getInputResponse(3) == null ? "" : c.getInputResponse(3), sell = c.getInputResponse(4) == null ? "" : c.getInputResponse(4);
+            if (plugin.change(player, p, buy, sell, c.getToggleResponse(5))) back.run(); else edit(player, listed, back);
         });
     }
 }

@@ -88,7 +88,7 @@ final class ShopWindow implements Listener {
         }
         buttons.add(button("§c" + text("window.close"), CLOSE));
         actions.add(() -> { });
-        menu(player, text("window.title"), text("window.pick_category"), buttons, actions);
+        menu(player, text("window.title"), "", buttons, actions);
     }
 
     /** The picture of a top category: the one in config window.icons.<category> (empty for none), else the hand-picked default */
@@ -104,14 +104,14 @@ final class ShopWindow implements Listener {
         if (sections.size() == 1) { families(player, category, sections.get(0), 0); return; }
         List<ElementButton> buttons = new ArrayList<>();
         List<Runnable> actions = new ArrayList<>();
+        buttons.add(button(text("window.back"), BACK));
+        actions.add(() -> open(player));
         for (String section : sections) {
             var list = plugin.catalogue().families(section);
             buttons.add(button(section, list.isEmpty() ? null : list.get(0).first().icon()));
             actions.add(() -> families(player, category, section, 0));
         }
-        buttons.add(button(text("window.back"), BACK));
-        actions.add(() -> open(player));
-        menu(player, category, text("window.pick_section"), buttons, actions);
+        menu(player, category, "", buttons, actions);
     }
 
     private void families(Player player, String category, String section, int page) {
@@ -121,14 +121,16 @@ final class ShopWindow implements Listener {
         int current = Paging.clamp(page, pages);
         List<ElementButton> buttons = new ArrayList<>();
         List<Runnable> actions = new ArrayList<>();
+        buttons.add(button(text("window.back"), BACK));
+        actions.add(() -> { if (Catalogue.LAYOUT.get(category).size() == 1) open(player); else sections(player, category); });
+        buttons.add(button(text("window.search"), SEARCH));
+        actions.add(() -> search(player, ""));
         for (var family : all.subList(Paging.from(current, per), Paging.to(current, per, all.size()))) {
             buttons.add(button(label(family), family.first().icon()));
             actions.add(() -> item(player, family, () -> families(player, category, section, current)));
         }
         if (current > 0) { buttons.add(button(text("window.prev"), BACK)); actions.add(() -> families(player, category, section, current - 1)); }
         if (current < pages - 1) { buttons.add(button(text("window.next"), NEXT)); actions.add(() -> families(player, category, section, current + 1)); }
-        buttons.add(button(text("window.back"), BACK));
-        actions.add(() -> { if (Catalogue.LAYOUT.get(category).size() == 1) open(player); else sections(player, category); });
         menu(player, section, text("window.list_text", all.size(), current + 1, pages), buttons, actions);
     }
 
@@ -159,16 +161,16 @@ final class ShopWindow implements Listener {
         int current = Paging.clamp(page, pages);
         List<ElementButton> buttons = new ArrayList<>();
         List<Runnable> actions = new ArrayList<>();
+        buttons.add(button(text("window.back"), BACK));
+        actions.add(() -> open(player));
+        buttons.add(button(text("window.search"), SEARCH));
+        actions.add(() -> search(player, word));
         for (var family : families.subList(Paging.from(current, per), Paging.to(current, per, families.size()))) {
             buttons.add(button(label(family), family.first().icon()));
             actions.add(() -> item(player, family, () -> results(player, word, current)));
         }
         if (current > 0) { buttons.add(button(text("window.prev"), BACK)); actions.add(() -> results(player, word, current - 1)); }
         if (current < pages - 1) { buttons.add(button(text("window.next"), NEXT)); actions.add(() -> results(player, word, current + 1)); }
-        buttons.add(button(text("window.search"), SEARCH));
-        actions.add(() -> search(player, word));
-        buttons.add(button(text("window.back"), BACK));
-        actions.add(() -> open(player));
         menu(player, text("window.search"), families.isEmpty() ? text("window.no_match", word) : text("window.list_text", families.size(), current + 1, pages), buttons, actions);
     }
 
