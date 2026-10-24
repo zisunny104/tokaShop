@@ -103,4 +103,11 @@ public class ShopTest {
         if (node instanceof java.util.Map<?, ?> m) m.forEach((k, v) -> flatten(prefix.isEmpty() ? String.valueOf(k) : prefix + "." + k, v, out));
         else out.add(prefix);
     }
+
+    @Test public void piecesReadLikeAClock() {
+        assertArrayEquals(new int[]{2, 2}, Stacks.split(130, 64));
+        assertArrayEquals(new int[]{1, 0}, Stacks.split(16, 16));
+        assertArrayEquals(new int[]{0, 5}, Stacks.split(5, 1));
+        assertArrayEquals(new int[]{0, 63}, Stacks.split(63, 64));
+    }
 }

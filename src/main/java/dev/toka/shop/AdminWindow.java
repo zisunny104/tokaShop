@@ -36,19 +36,19 @@ final class AdminWindow {
         int current = Paging.clamp(page, pages);
         List<ElementButton> buttons = new ArrayList<>();
         List<Runnable> actions = new ArrayList<>();
-        buttons.add(ShopWindow.button(ui.text("window.back"), ShopWindow.BACK));
+        buttons.add(ui.button(ui.text("window.back"), ShopWindow.BACK));
         actions.add(() -> ui.open(player));
-        buttons.add(ShopWindow.button(ui.text("window.search"), ShopWindow.SEARCH));
+        buttons.add(ui.button(ui.text("window.search"), ShopWindow.SEARCH));
         actions.add(() -> search(player, word));
-        buttons.add(ShopWindow.button(ui.text("window.reload"), "textures/ui/refresh_light"));
+        buttons.add(ui.button(ui.text("window.reload"), "textures/ui/refresh_light"));
         actions.add(() -> { plugin.reload(player); list(player, word, current); });
         for (Product p : found.subList(Paging.from(current, per), Paging.to(current, per, found.size()))) {
-            buttons.add(ShopWindow.button(p.key() + "　" + p.name(plugin.language()) + "\n"
+            buttons.add(ui.button(p.key() + "　" + p.name(plugin.language()) + "\n"
                     + ui.text("window.admin_line", price(p.buy()), price(p.sell())), p.icon()));
             actions.add(() -> edit(player, p, () -> list(player, word, current)));
         }
-        if (current > 0) { buttons.add(ShopWindow.button(ui.text("window.prev"), ShopWindow.BACK)); actions.add(() -> list(player, word, current - 1)); }
-        if (current < pages - 1) { buttons.add(ShopWindow.button(ui.text("window.next"), ShopWindow.NEXT)); actions.add(() -> list(player, word, current + 1)); }
+        if (current > 0) { buttons.add(ui.button(ui.text("window.prev"), ShopWindow.BACK)); actions.add(() -> list(player, word, current - 1)); }
+        if (current < pages - 1) { buttons.add(ui.button(ui.text("window.next"), ShopWindow.NEXT)); actions.add(() -> list(player, word, current + 1)); }
         String body = found.isEmpty() ? ui.text("window.no_match", word) : ui.text("window.list_text", found.size(), current + 1, pages);
         ui.menu(player, ui.text("window.admin_title"), body, buttons, actions);
     }

@@ -9,6 +9,8 @@ import cn.nukkit.form.element.ElementButton;
 import cn.nukkit.form.element.ElementButtonImageData;
 import cn.nukkit.form.element.ElementDropdown;
 import cn.nukkit.form.element.ElementInput;
+import cn.nukkit.form.element.ElementDivider;
+import cn.nukkit.form.element.ElementHeader;
 import cn.nukkit.form.element.ElementLabel;
 import cn.nukkit.form.element.ElementSlider;
 import cn.nukkit.form.response.FormResponse;
@@ -51,8 +53,10 @@ final class ShopWindow implements Listener {
 
     static final String BACK = "textures/ui/arrow_left", NEXT = "textures/ui/arrow_right", SEARCH = "textures/ui/magnifyingGlass", CLOSE = "textures/ui/cancel";
 
-    static ElementButton button(String label, String icon) {
-        return icon == null ? new ElementButton(label) : new ElementButton(label, new ElementButtonImageData("path", icon));
+    private boolean icons() { return plugin.getConfig().getBoolean("window.show-icons", true); }
+
+    ElementButton button(String label, String icon) {
+        return icon == null || !icons() ? new ElementButton(label) : new ElementButton(label, new ElementButtonImageData("path", icon));
     }
 
     /** A simple window whose buttons run the given actions in order */
@@ -82,13 +86,14 @@ final class ShopWindow implements Listener {
             buttons.add(button(text("window.admin"), "textures/ui/settings_glyph_color_2x"));
             actions.add(() -> admin.open(player));
         }
-        buttons.add(button(text("window.close"), CLOSE));
+        buttons.add(button("§c" + text("window.close"), CLOSE));
         actions.add(() -> { });
         menu(player, text("window.title"), text("window.pick_category"), buttons, actions);
     }
 
     /** The picture of a top category: the one in config window.icons.<category> (empty for none), else the hand-picked default */
     private String categoryIcon(String category) {
+        if (!icons()) return null;
         String set = plugin.getConfig().getString("window.icons." + category, null);
         if (set != null) return set.isBlank() ? null : set;
         return Catalogue.ICONS.get(category);
@@ -171,31 +176,32 @@ final class ShopWindow implements Listener {
     private void item(Player player, Catalogue.Family family, Runnable back) {
         List<Product> members = family.members().stream().filter(p -> p.canBuy() || p.canSell()).toList();
         if (members.isEmpty()) { back.run(); return; }
-        var window = new FormWindowCustom(family.first().familyName(plugin.language()));
+        var window = new FormWindowCustom(text("window.title"));
         Product first = members.get(0);
-        window.addElement(new ElementLabel(text("window.item_text", first.pack(), plugin.windowTax())));
+        window.addElement(new ElementHeader(family.first().familyName(plugin.language())));
         if (members.size() > 1) {
             List<String> names = new ArrayList<>();
-            for (Product p : members) names.add(text("window.variant_line", variant(p), price(p.buy()), price(p.sell())));
+            for (Product p : members) names.add(text("window.variant_line", variant(p), p.pack(), money(p.buy()), money(p.sell())));
             window.addElement(new ElementDropdown(text("window.variant"), names, 0));
         } else {
-            window.addElement(new ElementLabel(text("window.variant_line", first.name(plugin.language()), price(first.buy()), price(first.sell()))));
+            window.addElement(new ElementLabel(text("window.info", first.pack(), money(first.buy()), money(first.sell()), plugin.windowTax())));
         }
+        window.addElement(new ElementDivider());
         // only sides that are open for some variant are offered; buying comes first
         boolean anyBuy = members.stream().anyMatch(Product::canBuy), anySell = members.stream().anyMatch(Product::canSell);
         List<String> sides = new ArrayList<>();
         if (anyBuy) sides.add(text("window.buy"));
         if (anySell) sides.add(text("window.sell"));
         if (sides.size() > 1) window.addElement(new ElementDropdown(text("window.action"), sides, 0));
-        else window.addElement(new ElementLabel(text("window.action") + "：" + sides.get(0)));
+        else window.addElement(new ElementLabel(text("window.action") + "　" + sides.get(0)));
         int most = plugin.maxPacks();
         if (most > 1) window.addElement(new ElementSlider(text("window.packs", most), 1, most, 1, 1));
         else window.addElement(new ElementLabel(text("window.packs", most)));
         show(player, window, r -> {
             if (!(r instanceof FormResponseCustom c)) return;
             Product chosen = members.size() > 1 ? members.get(c.getDropdownResponse(1).getElementID()) : first;
-            boolean buying = sides.size() > 1 ? (anyBuy && c.getDropdownResponse(2).getElementID() == 0) : anyBuy;
-            int packs = most > 1 ? Math.round(c.getSliderResponse(3)) : 1;
+            boolean buying = sides.size() > 1 ? (anyBuy && c.getDropdownResponse(3).getElementID() == 0) : anyBuy;
+            int packs = most > 1 ? Math.round(c.getSliderResponse(4)) : 1;
             if (packs < 1 || packs > most) { player.sendMessage(text("shop.bad_count", most)); item(player, family, back); return; }
             confirm(player, family, chosen, buying, packs, back);
         });
@@ -203,7 +209,21 @@ final class ShopWindow implements Listener {
 
     private String variant(Product p) { return p.variant().isEmpty() ? p.name(plugin.language()) : p.variant(); }
 
-    private String price(long value) { return value > 0 ? String.valueOf(value) : text("shop.closed"); }
+    /** A price with thousands separators and the currency name, or the word for closed */
+    String money(long value) { return value > 0 ? String.format("%,d", value) + " " + text("shop.unit") : text("shop.closed"); }
+
+    /** The real largest stack of the item in the game; the pack size when the item is unknown */
+    private int stackSize(Product p) {
+        var item = Trade.item(p, 1);
+        return item == null ? p.pack() : Math.max(1, item.getMaxStackSize());
+    }
+
+    /** N pieces written like a clock: 130 pieces = 2 stacks 2 pieces */
+    private String pieces(Product p, int pieces) {
+        int[] split = Stacks.split(pieces, stackSize(p));
+        if (split[0] == 0) return text("window.pieces_only", pieces);
+        return split[1] == 0 ? text("window.pieces_even", pieces, split[0]) : text("window.pieces_full", pieces, split[0], split[1]);
+    }
 
     private void confirm(Player player, Catalogue.Family family, Product product, boolean buying, int packs, Runnable back) {
         if (buying ? !product.canBuy() : !product.canSell()) {
@@ -214,8 +234,8 @@ final class ShopWindow implements Listener {
         int pieces = packs * product.pack();
         long total = buying ? Pricing.buyTotal(product.buy(), product.pack(), pieces) : Pricing.sellTotal(product.sell(), product.pack(), pieces);
         long tax = buying ? Pricing.tax(total, plugin.windowTax()) : 0;
-        String body = text(buying ? "window.confirm_buy" : "window.confirm_sell", product.name(plugin.language()), pieces, total, tax, total + tax, plugin.balanceOf(player.getUniqueId()));
-        var window = new FormWindowModal(text("window.confirm_title"), body, text("window.confirm"), text("window.cancel"));
+        String body = text(buying ? "window.confirm_buy" : "window.confirm_sell", product.name(plugin.language()), pieces(product, pieces), money(total), money(tax), money(total + tax), money(plugin.balanceOf(player.getUniqueId())));
+        var window = new FormWindowModal(text("window.confirm_title"), body, text("window.confirm"), "§c" + text("window.cancel"));
         show(player, window, r -> {
             if (!(r instanceof FormResponseModal m)) return;
             if (m.getClickedButtonId() != 0) { item(player, family, back); return; }

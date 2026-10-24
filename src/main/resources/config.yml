@@ -22,6 +22,8 @@ window:
   per-page: 30
   # 單次最多買或賣幾組
   max-packs: 36
+  # 按鈕上的圖片（類別與品項）；false 為全部不用圖片
+  show-icons: true
   # 主選單各類別的按鈕圖片（材質路徑）；留空則不用圖片，沒寫的類別用內建圖片
   icons: {}
 

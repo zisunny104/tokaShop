@@ -94,7 +94,7 @@ public final class Catalogue {
 
     /** Hand-picked button pictures of the top categories; config window.icons.<category> replaces one, an empty text removes it */
     public static final Map<String, String> ICONS = Map.of(
-            "建築", "textures/blocks/brick", "自然", "textures/blocks/sapling_oak", "裝飾", "textures/items/painting",
+            "建築", "textures/items/brick", "自然", "textures/items/wheat", "裝飾", "textures/items/painting",
             "材料", "textures/items/iron_ingot", "裝備", "textures/items/iron_chestplate", "食物", "textures/items/bread");
 
     private static long valid(Long wanted, long kept) {
