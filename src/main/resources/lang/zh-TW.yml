@@ -1,5 +1,4 @@
 shop:
-  prefix: "§e[商店] §f"
   no_economy: "§e[商店] §c經濟系統目前無法使用。"
   unknown: "§e[商店] §c找不到這個品項：${0}"
   closed_buy: "§e[商店] §c${0} 目前不販售。"
@@ -32,7 +31,6 @@ window:
   next: "下一頁"
   back: "返回"
   close: "關閉"
-  item_text: "每組 ${0} 個。從視窗購買另收 ${1}% 消費稅。"
   variant: "款式"
   variant_line: "${0}　${1} 個　買 ${2}　賣 ${3}"
   action: "要做什麼"

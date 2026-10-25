@@ -94,7 +94,7 @@ final class Trade {
         } catch (ReflectiveOperationException | LinkageError noDisplay) { player.sendActionBar(top); }
     }
 
-    private String money(long value) { return String.format("%,d", value) + " " + plugin.messages().text("shop.unit"); }
+    private String money(long value) { return plugin.amount(value); }
 
     private void run(Runnable task) {
         Server.getInstance().getScheduler().scheduleTask(plugin, task);
