@@ -142,6 +142,15 @@ public final class Main extends PluginBase {
 
     private static Long number(Object o) { return o instanceof Number n ? n.longValue() : null; }
 
+    /** The closed products are listed in a file next to the config, one id per line, so that the catalogue can be trimmed later. */
+    private void writeUnknown(List<String> ids) {
+        java.nio.file.Path file = getDataFolder().toPath().resolve("unknown-items.txt");
+        try {
+            if (ids.isEmpty()) java.nio.file.Files.deleteIfExists(file);
+            else java.nio.file.Files.write(file, ids.stream().distinct().sorted().toList(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException failed) { getLogger().debug("unknown-items.txt: " + failed.getMessage()); }
+    }
+
     /** A product whose id this server does not know cannot be traded: it is closed, and counted once in the log. */
     private void validateItems() {
         int unknown = 0;
@@ -156,7 +165,7 @@ public final class Main extends PluginBase {
         long open = catalogue.all().stream().filter(p -> p.canBuy() || p.canSell()).count();
         getLogger().info(messages.text("log.shop_count", shipped.size(), open));
         if (unknown > 0) getLogger().warning(messages.text("log.shop_unknown", unknown));
-        if (unknown > 0) getLogger().info(messages.text("log.shop_unknown_ids", String.join(" ", unknownIds.stream().distinct().limit(80).toList())));
+        writeUnknown(unknownIds);
     }
 
     String language() { return language; }

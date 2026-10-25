@@ -83,5 +83,4 @@ log:
   tax_account_bad: "§etax.account 不是有效的 UUID，稅金不存入帳戶"
   no_treasury: "§e找不到主國庫，這筆消費稅 §a${0}§e 沒有存入任何帳戶"
   shop_count: "§b商店 §a${0}§b 個品項，§a${1}§b 個開放"
-  shop_unknown: "§a${0}§e 個品項此伺服器不認得，已關閉"
-  shop_unknown_ids: "§7不認得的代碼：${0}"
+  shop_unknown: "§a${0}§e 個品項此伺服器不認得，已關閉（清單在 unknown-items.txt）"

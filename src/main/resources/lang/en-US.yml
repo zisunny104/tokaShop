@@ -84,4 +84,3 @@ log:
   no_treasury: "§eNo main treasury found; the tax of §a${0}§e was deposited nowhere"
   shop_count: "§bShop: §a${0}§b products, §a${1}§b open"
   shop_unknown: "§a${0}§e products are unknown to this server and closed"
-  shop_unknown_ids: "§7Unknown ids: ${0}"
