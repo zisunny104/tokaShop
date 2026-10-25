@@ -30,6 +30,8 @@ public final class Main extends PluginBase {
     private Map<String, Catalogue.Override> overrides = Map.of();
     private SignLink signs;
     private UUID taxAccount;
+    private Stalls stalls;
+    private StallWindow stallWindow;
 
     @Override public void onEnable() {
         saveDefaultConfig();
@@ -46,6 +48,7 @@ public final class Main extends PluginBase {
         window = new ShopWindow(this);
         admin = new AdminWindow(this, window);
         window.admin(admin);
+        openStalls();
         getServer().getPluginManager().registerEvents(window, this);
         getServer().getPluginManager().registerEvents(new cn.nukkit.event.Listener() {
             @cn.nukkit.event.EventHandler public void on(cn.nukkit.event.plugin.PluginEnableEvent e) {
@@ -56,7 +59,24 @@ public final class Main extends PluginBase {
         suggestCommands();
     }
 
+    /** The personal shops; when their store cannot be opened they stay off and the catalogue shop works as before */
+    private void openStalls() {
+        try {
+            stalls = new Stalls(this);
+            stallWindow = new StallWindow(this, window, stalls);
+            window.stalls(stallWindow);
+            getServer().getPluginManager().registerEvents(new StallSigns(this, stalls, stallWindow), this);
+            stalls.settleAll();
+        } catch (IOException | RuntimeException | LinkageError error) {
+            stalls = null;
+            stallWindow = null;
+            getLogger().error(messages.text("log.stall_failed", String.valueOf(error)));
+        }
+    }
+
     @Override public void onDisable() {
+        if (stalls != null) stalls.close();
+        stalls = null;
         if (signs != null) signs.unregister();
         signs = null;
     }
@@ -73,12 +93,31 @@ public final class Main extends PluginBase {
         registered.addCommandParameters("price", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopPrice", "price")), code});
         registered.addCommandParameters("help", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopHelp", "help")),
                 CommandParameter.newType("page", true, CommandParamType.INT)});
-        registered.addCommandParameters("plain", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopPlain", "reload", "admin"))});
+        registered.addCommandParameters("plain", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopPlain", "reload", "admin", "my"))});
+        registered.addCommandParameters("visit", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopVisit", "visit")),
+                CommandParameter.newEnum("stall", new CommandEnum("TokaShopStalls", stallNames()))});
+        registered.addCommandParameters("stall", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopStall", "stall")),
+                CommandParameter.newEnum("what", new CommandEnum("TokaShopStallWhat", "list", "close", "open", "remove")),
+                CommandParameter.newEnum("stall", true, new CommandEnum("TokaShopStallName", stallNames())), CommandParameter.newEnum("force", true, new CommandEnum("TokaShopStallForce", "force"))});
         registered.addCommandParameters("toggle", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopToggle", "enable", "disable")), code});
         registered.addCommandParameters("set", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopSet", "set")), code,
                 CommandParameter.newType("buy", CommandParamType.INT), CommandParameter.newType("sell", CommandParamType.INT)});
         // the client keeps the command list it got at join, so it is sent again after a (re)load
         getServer().getScheduler().scheduleTask(this, () -> getServer().getOnlinePlayers().values().forEach(Player::sendCommandData));
+    }
+
+    /** The stall names at this moment, for the command list */
+    private String[] stallNames() {
+        return stalls == null || stalls.book().names().isEmpty() ? new String[]{"-"} : stalls.book().names().stream().map(n -> n.replace(' ', '_')).toArray(String[]::new);
+    }
+
+    /** A stall appeared, went or changed its name: the names offered by Tab are sent again */
+    void namesChanged() { if (stalls != null) getServer().getScheduler().scheduleTask(this, this::suggestCommands); }
+
+    /** A stall by the name typed; Tab offers spaces as underscores */
+    private Stall findStall(String typed) {
+        Stall stall = stalls.book().byName(typed);
+        return stall != null ? stall : stalls.book().byName(typed.replace('_', ' '));
     }
 
     private void linkSigns() {
@@ -94,6 +133,14 @@ public final class Main extends PluginBase {
     }
 
     void openWindow(Player player) { window.open(player); }
+
+    /** A result line to the chat, and to the top of the screen when that is on (the same as a catalogue trade) */
+    void say(Player player, String line) { trade.say(player, line); }
+
+    void run(Runnable task) { getServer().getScheduler().scheduleTask(this, task); }
+
+    /** An amount with thousands separators and the currency name */
+    String amount(long value) { return String.format("%,d", value) + " " + messages.text("shop.unit"); }
 
     /** Reads the config again: language, messages, currency, taxes, window sizes */
     private void readSettings() {
@@ -255,6 +302,20 @@ public final class Main extends PluginBase {
                 if (sub.equals("buy")) trade.buy(player, p, pieces, windowTax); else trade.sell(player, p, pieces);
             }
             case "reload" -> reload(sender);
+            case "my" -> {
+                if (!(sender instanceof Player player)) return true;
+                if (stallWindow == null) sender.sendMessage(messages.text("stall.unavailable")); else stallWindow.my(player);
+            }
+            case "visit" -> {
+                if (!(sender instanceof Player player)) return true;
+                if (stalls == null) { sender.sendMessage(messages.text("stall.unavailable")); return true; }
+                String name = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
+                Stall stall = findStall(name);
+                if (stall == null) sender.sendMessage(messages.text("stall.unknown", StallRules.cleanName(name)));
+                else if (stall.owner.equals(player.getUniqueId())) { stalls.recheck(stall); stallWindow.manage(player, stall); }
+                else stallWindow.visit(player, stall);
+            }
+            case "stall" -> stallAdmin(sender, args);
             case "admin" -> {
                 if (!(sender instanceof Player player)) return true;
                 if (!sender.hasPermission("tokashop.admin")) { sender.sendMessage(messages.text("shop.admin_only")); return true; }
@@ -273,13 +334,45 @@ public final class Main extends PluginBase {
         return true;
     }
 
+    /** /shop stall list | close <name> | open <name> | remove <name> [force] */
+    private void stallAdmin(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("tokashop.admin")) { sender.sendMessage(messages.text("shop.admin_only")); return; }
+        if (stalls == null) { sender.sendMessage(messages.text("stall.unavailable")); return; }
+        String what = args.length > 1 ? args[1].toLowerCase(java.util.Locale.ROOT) : "list";
+        if (what.equals("list")) {
+            var all = stalls.book().all();
+            sender.sendMessage(messages.text("stall.admin_header", all.size()));
+            all.stream().limit(40).forEach(s -> sender.sendMessage(messages.text("stall.admin_line", s.name, s.ownerName,
+                    messages.text("stall.state_" + stalls.state(s)), s.stock.size(), amount(s.income))));
+            return;
+        }
+        if (!what.equals("close") && !what.equals("open") && !what.equals("remove")) { sender.sendMessage(messages.text("shop.usage")); return; }
+        boolean force = args.length > 2 && args[args.length - 1].equalsIgnoreCase("force");
+        String name = String.join(" ", java.util.Arrays.copyOfRange(args, 2, force ? args.length - 1 : args.length));
+        Stall stall = findStall(name);
+        if (stall == null) { sender.sendMessage(messages.text("stall.unknown", StallRules.cleanName(name))); return; }
+        if (what.equals("remove")) {
+            if ((!stall.stock.empty() || !stall.owed.isEmpty()) && !force) { sender.sendMessage(messages.text("stall.admin_not_empty", stall.name)); return; }
+            stalls.book().remove(stall);
+            sender.sendMessage(messages.text("stall.deleted", stall.name));
+            getLogger().info(messages.text("log.stall_removed", stall.name, sender.getName()));
+            namesChanged();
+            return;
+        }
+        stall.locked = what.equals("close");
+        stalls.book().save(stall);
+        stalls.signText(stall);
+        sender.sendMessage(messages.text(stall.locked ? "stall.admin_closed" : "stall.admin_opened", stall.name));
+        getLogger().info(messages.text(stall.locked ? "log.stall_locked" : "log.stall_unlocked", stall.name, sender.getName()));
+    }
+
     private static int parsePage(String text) {
         try { return Integer.parseInt(text.trim()); } catch (NumberFormatException bad) { return 1; }
     }
 
     private static final int HELP_PER_PAGE = 5;
     /** Help topics in order; "a" marks the ones only admins may use */
-    private static final String[][] HELP = {{"open", ""}, {"buy", ""}, {"sell", ""}, {"price", ""}, {"help", ""}, {"admin", "a"}, {"set", "a"}, {"enable", "a"}, {"disable", "a"},
+    private static final String[][] HELP = {{"open", ""}, {"buy", ""}, {"sell", ""}, {"price", ""}, {"my", ""}, {"visit", ""}, {"help", ""}, {"stall", "a"}, {"admin", "a"}, {"set", "a"}, {"enable", "a"}, {"disable", "a"},
             {"reload", "a"}, {"permissions", ""}, {"closed", ""}};
 
     /** Paged help in the chat */

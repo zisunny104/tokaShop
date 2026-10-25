@@ -1,13 +1,13 @@
 name: tokaShop
 main: dev.toka.shop.Main
-version: "0.1.16"
+version: "0.1.17"
 api: ["1.0.4"]
 load: POSTWORLD
 softdepend: [tokaEconomy, tokaSigns, tokaRegions, tokaDisplay, tokaProfiles]
 commands:
   shop:
     description: 商店
-    usage: "/shop [help|buy|sell|price|set|enable|disable|admin|reload]"
+    usage: "/shop [help|buy|sell|price|my|visit|stall|set|enable|disable|admin|reload]"
     permission: tokashop.use
 permissions:
   tokashop.use:
@@ -15,4 +15,10 @@ permissions:
     default: true
   tokashop.admin:
     description: 管理商店價格與品項
+    default: op
+  tokashop.stall:
+    description: 開設與管理自己的個人商店（攤位）
+    default: true
+  tokashop.stall.anywhere:
+    description: 沒有 tokaLand 時，可在任何地方放攤位告示牌
     default: op

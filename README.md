@@ -8,6 +8,6 @@ Nukkit-MOT 商店外掛：圖示視窗、告示牌（購買 31、回收 32、物
 - 目錄只開放核心認得的物品：啟動時逐一檢查每個品項，核心不認得的會被關閉（買賣價都視為 -1），數量記在後台，品項代碼一行一個列在資料夾的 `unknown-items.txt`；全部都認得時該檔案不存在。
 - 個別調整寫在資料夾的 `overrides.yml`（價格、名稱、停用）；名稱預設取伺服器語言的原版名稱。
 - 消費稅：視窗購買預設 5%，告示牌 0%，稅金存入 tokaRegions 的主國庫。
-- 設計草案：`docs/PLAYER-SHOPS.md`（個人商店與分租領地）。
+- 個人商店（攤位）：玩家從背包存貨、定每個價格，庫存存在外掛的資料庫（tokaStorage），貨款直接進店主帳戶，店主可離線。用告示牌（第一行 `[stall]`、第二行攤位名稱，有 tokaLand 時只能放在自己擁有或承租的領地）或 `/shop visit <攤位>` 進入，店主用 `/shop my` 管理，管理員用 `/shop stall list|close|open|remove`。設定在 `config.yml` 的 `stall`，說明見 `docs/PLAYER-SHOPS.md`。
 
 需要 tokaEconomy；tokaSigns、tokaRegions、tokaDisplay 為選用。建置：`build.ps1`。

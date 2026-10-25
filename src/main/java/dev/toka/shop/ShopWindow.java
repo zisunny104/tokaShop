@@ -39,10 +39,13 @@ final class ShopWindow implements Listener {
     private final Map<FormWindow, Entry> open = Collections.synchronizedMap(new WeakHashMap<>());
 
     private AdminWindow admin;
+    private StallWindow stalls;
 
     ShopWindow(Main plugin) { this.plugin = plugin; }
 
     void admin(AdminWindow admin) { this.admin = admin; }
+
+    void stalls(StallWindow stalls) { this.stalls = stalls; }
 
     String text(String key, Object... args) { return plugin.messages().text(key, args); }
 
@@ -82,6 +85,12 @@ final class ShopWindow implements Listener {
         }
         buttons.add(button(text("window.search"), SEARCH));
         actions.add(() -> search(player, ""));
+        if (stalls != null) {
+            buttons.add(button(text("stall.browse"), null));
+            actions.add(() -> stalls.browse(player, 0));
+            buttons.add(button(text("stall.my_title"), null));
+            actions.add(() -> stalls.my(player));
+        }
         if (player.hasPermission("tokashop.admin")) {
             buttons.add(button(text("window.admin"), "textures/ui/settings_glyph_color_2x"));
             actions.add(() -> admin.open(player));

@@ -28,3 +28,21 @@ window:
   icons: {}
 
 # 個別品項的價格、名稱與停用請寫在 overrides.yml，不要改這個檔案
+
+# 個人商店（攤位）：玩家用背包的東西開店，庫存存在外掛的資料庫（stalls 資料夾），不是實體箱子
+stall:
+  # 每位玩家最多幾個攤位
+  max-per-player: 3
+  # 每個攤位最多幾種商品（相同物品、相同附魔與名稱算同一種）
+  max-products: 27
+  # 每個商品每個的最高價格
+  max-price: 1000000
+  # 攤位的消費稅，百分比，買家另付；-1 表示跟 tax.window 一樣。稅金和商店一樣存入 tax.account 或主國庫
+  tax: -1
+  # 告示牌第一行要寫的字，第二行寫攤位名稱
+  sign-tag: "[stall]"
+
+# 個人商店資料的存放：stalls 資料夾（SQLITE、JSON 或 YAML），每個攤位一份文件
+storage:
+  backend: SQLITE
+  directory: stalls

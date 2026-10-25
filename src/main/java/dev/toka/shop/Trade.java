@@ -84,7 +84,7 @@ final class Trade {
     }
 
     /** The result goes to the chat as the record, and the same line, without the shop's tag, to the top of the screen */
-    private void say(Player player, String line) {
+    void say(Player player, String line) {
         player.sendMessage(line);
         if (!plugin.topNotice()) return;
         String top = line.replaceFirst("^§.\\[[^\\]]*\\]\\s*", "");
