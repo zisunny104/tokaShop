@@ -92,10 +92,10 @@ public final class Catalogue {
         return p;
     }
 
-    /** Hand-picked button pictures of the top categories; config window.icons.<category> replaces one, an empty text removes it */
+    /** Hand-picked button pictures of the top categories, block textures because the client showed the item textures as missing; config window.icons.<category> replaces one, an empty text removes it */
     public static final Map<String, String> ICONS = Map.of(
-            "建築", "textures/items/brick", "自然", "textures/items/wheat", "裝飾", "textures/items/painting",
-            "材料", "textures/items/iron_ingot", "裝備", "textures/items/iron_chestplate", "食物", "textures/items/bread");
+            "建築", "textures/blocks/planks_oak", "自然", "textures/blocks/sapling_oak", "裝飾", "textures/blocks/bookshelf",
+            "材料", "textures/blocks/iron_block", "裝備", "textures/blocks/anvil_base", "食物", "textures/blocks/cake_side");
 
     private static long valid(Long wanted, long kept) {
         return wanted != null && (wanted == -1 || wanted >= 1) ? wanted : kept;

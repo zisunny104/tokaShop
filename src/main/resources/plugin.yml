@@ -1,6 +1,6 @@
 name: tokaShop
 main: dev.toka.shop.Main
-version: "0.1.17"
+version: "0.1.18"
 api: ["1.0.4"]
 load: POSTWORLD
 softdepend: [tokaEconomy, tokaSigns, tokaRegions, tokaDisplay, tokaProfiles]
