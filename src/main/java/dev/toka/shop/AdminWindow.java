@@ -45,7 +45,7 @@ final class AdminWindow {
         buttons.add(ui.button(ui.text("window.reload"), "textures/ui/refresh_light"));
         actions.add(() -> { plugin.reload(player); list(player, word, current); });
         for (Product p : found.subList(Paging.from(current, per), Paging.to(current, per, found.size()))) {
-            buttons.add(ui.button(p.key() + "　" + p.name(plugin.language()) + "\n"
+            buttons.add(ui.button(p.key() + " " + p.name(plugin.language()) + "\n"
                     + ui.text("window.admin_line", price(p.buy()), price(p.sell())), p.icon()));
             actions.add(() -> edit(player, p, () -> list(player, word, current)));
         }

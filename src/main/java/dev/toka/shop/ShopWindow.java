@@ -204,7 +204,7 @@ final class ShopWindow implements Listener {
         if (anyBuy) sides.add(text("window.buy"));
         if (anySell) sides.add(text("window.sell"));
         if (sides.size() > 1) window.addElement(new ElementDropdown(text("window.action"), sides, 0));
-        else window.addElement(new ElementLabel(text("window.action") + "　" + sides.get(0)));
+        else window.addElement(new ElementLabel(text("window.action") + " " + sides.get(0)));
         int most = plugin.maxPacks();
         if (most > 1) window.addElement(new ElementSlider(text("window.packs", most), 1, most, 1, 1));
         else window.addElement(new ElementLabel(text("window.packs", most)));
