@@ -170,7 +170,7 @@ log:
   signs_linked: "§b商店告示牌（購買、回收、物品管理）已接上 §atokaSigns"
   sign_not_ready: "§e告示牌介接未就緒：§a${0}"
   tax_account_bad: "§etax.account 不是有效的 UUID，稅金不存入帳戶"
-  no_treasury: "§e找不到主國庫，這筆消費稅 §a${0}§e 沒有存入任何帳戶"
+  no_treasury: "§e找不到主公有帳戶，這筆消費稅 §a${0}§e 沒有存入任何帳戶"
   shop_count: "§b商店 §a${0}§b 個品項，§a${1}§b 個開放"
   shop_unknown: "§a${0}§e 個品項此伺服器不認得，已關閉（清單在 unknown-items.txt）"
   stall_count: "§b個人商店 §a${0}§b 間"
