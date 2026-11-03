@@ -86,22 +86,24 @@ public final class Main extends PluginBase {
         var command = getCommand("shop");
         if (command == null) return;
         Command registered = (Command) command;
-        registered.getCommandParameters().clear();
+        // Built aside and swapped in whole: the network thread encodes the command list at any moment, and a half-built map would leave enum references dangling.
+        var rebuiltParams = new java.util.HashMap<String, cn.nukkit.command.data.CommandParameter[]>();
         CommandParameter code = CommandParameter.newType("code", CommandParamType.STRING);
-        registered.addCommandParameters("trade", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopTrade", "buy", "sell")), code,
+        rebuiltParams.put("trade", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopTrade", "buy", "sell")), code,
                 CommandParameter.newType("pieces", true, CommandParamType.INT)});
-        registered.addCommandParameters("price", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopPrice", "price")), code});
-        registered.addCommandParameters("help", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopHelp", "help")),
+        rebuiltParams.put("price", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopPrice", "price")), code});
+        rebuiltParams.put("help", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopHelp", "help")),
                 CommandParameter.newType("page", true, CommandParamType.INT)});
-        registered.addCommandParameters("plain", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopPlain", "reload", "admin", "my"))});
-        registered.addCommandParameters("visit", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopVisit", "visit")),
+        rebuiltParams.put("plain", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopPlain", "reload", "admin", "my"))});
+        rebuiltParams.put("visit", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopVisit", "visit")),
                 CommandParameter.newEnum("stall", new CommandEnum("TokaShopStalls", stallNames()))});
-        registered.addCommandParameters("stall", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopStall", "stall")),
+        rebuiltParams.put("stall", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopStall", "stall")),
                 CommandParameter.newEnum("what", new CommandEnum("TokaShopStallWhat", "list", "close", "open", "remove")),
                 CommandParameter.newEnum("stall", true, new CommandEnum("TokaShopStallName", stallNames())), CommandParameter.newEnum("force", true, new CommandEnum("TokaShopStallForce", "force"))});
-        registered.addCommandParameters("toggle", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopToggle", "enable", "disable")), code});
-        registered.addCommandParameters("set", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopSet", "set")), code,
+        rebuiltParams.put("toggle", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopToggle", "enable", "disable")), code});
+        rebuiltParams.put("set", new CommandParameter[]{CommandParameter.newEnum("action", new CommandEnum("TokaShopSet", "set")), code,
                 CommandParameter.newType("buy", CommandParamType.INT), CommandParameter.newType("sell", CommandParamType.INT)});
+        registered.setCommandParameters(rebuiltParams);
         // the client keeps the command list it got at join, so it is sent again after a (re)load
         getServer().getScheduler().scheduleTask(this, () -> getServer().getOnlinePlayers().values().forEach(Player::sendCommandData));
     }
